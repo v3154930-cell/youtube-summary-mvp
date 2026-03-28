@@ -14,6 +14,9 @@ logger = logging.getLogger(__name__)
 # Setup templates
 templates = Jinja2Templates(directory="templates")
 
+# Mount static files
+app.mount("/public", StaticFiles(directory="public"), name="public")
+
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
     """Main page with form for YouTube URL input"""
@@ -67,4 +70,4 @@ async def health_check():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("app:app", host="0.0.0.0", port=8000, reload=True)
