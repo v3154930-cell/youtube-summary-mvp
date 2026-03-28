@@ -13,7 +13,6 @@ logger = logging.getLogger(__name__)
 
 # Setup templates and static files
 templates = Jinja2Templates(directory="templates")
-app.mount("/public", StaticFiles(directory="public"), name="public")
 
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
