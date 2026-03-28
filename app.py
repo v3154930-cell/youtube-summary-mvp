@@ -11,9 +11,8 @@ app = FastAPI()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Setup templates and static files
+# Setup templates
 templates = Jinja2Templates(directory="templates")
-app.mount("/public", StaticFiles(directory="public"), name="public")
 
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
