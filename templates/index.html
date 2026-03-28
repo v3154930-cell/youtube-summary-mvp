@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VideoSum - Краткий пересказ видео</title>
+    <link rel="stylesheet" href="/public/styles.css">
+</head>
+<body>
+    <div class="page-bg"></div>
+
+    <div class="container">
+        <div class="brand">
+            <div class="logo">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M8 5v14l11-7z"></path>
+                </svg>
+            </div>
+            <h1>VideoSum</h1>
+            <p class="subtitle">Превращаем видео в краткий текст</p>
+        </div>
+
+        <form id="summaryForm" action="/summarize" method="post" class="input-section" onsubmit="showThinking()">
+            <input
+                type="text"
+                id="urlInput"
+                name="youtube_url"
+                placeholder="Вставьте ссылку на YouTube видео..."
+                value="{{ youtube_url or '' }}"
+                required
+            >
+            <button type="submit" class="btn-primary" id="submitBtn">
+                <span id="submitBtnText">Сделать краткий пересказ</span>
+            </button>
+        </form>
+
+        <div id="thinkingSection" class="thinking" style="display:none;">
+            <div class="thinking-title">Идет обработка видео...</div>
+
+            <div class="step-list">
+                <div class="step active" id="step1">
+                    <div class="step-dot"></div>
+                    <div class="step-text">1. Получение текста видео</div>
+                </div>
+
+                <div class="step" id="step2">
+                    <div class="step-dot"></div>
+                    <div class="step-text">2. Анализ содержания</div>
+                </div>
+
+                <div class="step" id="step3">
+                    <div class="step-dot"></div>
+                    <div class="step-text">3. Формирование краткого пересказа</div>
+                </div>
+            </div>
+        </div>
+
+        {% if error %}
+        <div class="result">
+            <div class="result-card error-card">
+                <div class="result-label">Ошибка</div>
+                <div class="result-text">{{ error }}</div>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if summary %}
+        <div class="result">
+            <div class="result-card">
+                <div class="result-label">Краткий пересказ</div>
+                <div class="result-text" id="summaryText">{{ summary }}</div>
+
+                <div class="result-actions">
+                    <button type="button" class="btn-speak" onclick="toggleSpeech()">
+                        <span id="speakText">Озвучить текст</span>
+                    </button>
+                    <a href="/" class="btn-secondary">Загрузить новое видео</a>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        {% set transcript_text = transcript_preview if transcript_preview is defined and transcript_preview else (transcript if transcript is defined and transcript else '') %}
+        {% if transcript_text %}
+        <div class="result">
+            <div class="result-card transcript-card">
+                <div class="result-label">Предпросмотр транскрипта</div>
+                <div class="result-text">{{ transcript_text }}</div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+   <script>
+    let synth = window.speechSynthesis;
+    let currentUtterance = null;
+    let availableVoices = [];
+
+    function loadVoices() {
+        if (!window.speechSynthesis) return;
+        availableVoices = synth.getVoices() || [];
+    }
+
+    loadVoices();
+
+    if (window.speechSynthesis) {
+        window.speechSynthesis.onvoiceschanged = function () {
+            loadVoices();
+        };
+    }
+
+    function showThinking() {
+        const thinkingSection = document.getElementById('thinkingSection');
+        const submitBtn = document.getElementById('submitBtn');
+        const submitBtnText = document.getElementById('submitBtnText');
+
+        if (thinkingSection) {
+            thinkingSection.style.display = 'block';
+        }
+
+        if (submitBtn) {
+            submitBtn.disabled = true;
+        }
+
+        if (submitBtnText) {
+            submitBtnText.textContent = 'Идет обработка видео...';
+        }
+
+        const step1 = document.getElementById('step1');
+        const step2 = document.getElementById('step2');
+        const step3 = document.getElementById('step3');
+
+        setTimeout(() => {
+            if (step1) {
+                step1.classList.remove('active');
+                step1.classList.add('done');
+            }
+            if (step2) {
+                step2.classList.add('active');
+            }
+        }, 700);
+
+        setTimeout(() => {
+            if (step2) {
+                step2.classList.remove('active');
+                step2.classList.add('done');
+            }
+            if (step3) {
+                step3.classList.add('active');
+            }
+        }, 1400);
+    }
+
+    function pickVoice() {
+        if (!availableVoices.length) {
+            loadVoices();
+        }
+
+        const russianVoice =
+            availableVoices.find(v => v.lang && v.lang.toLowerCase().startsWith('ru')) ||
+            availableVoices.find(v => v.lang && v.lang.toLowerCase().includes('ru'));
+
+        return russianVoice || availableVoices[0] || null;
+    }
+
+    function toggleSpeech() {
+        const summaryEl = document.getElementById('summaryText');
+        const btnText = document.getElementById('speakText');
+
+        if (!summaryEl || !btnText) return;
+
+        if (!('speechSynthesis' in window)) {
+            alert('В этом браузере не поддерживается озвучка текста.');
+            return;
+        }
+
+        if (synth.speaking) {
+            synth.cancel();
+            currentUtterance = null;
+            btnText.textContent = 'Озвучить текст';
+            return;
+        }
+
+        const text = summaryEl.innerText.trim();
+        if (!text) return;
+
+        const voice = pickVoice();
+
+        currentUtterance = new SpeechSynthesisUtterance(text);
+        currentUtterance.lang = voice?.lang || 'ru-RU';
+        currentUtterance.rate = 0.95;
+        currentUtterance.pitch = 1;
+        currentUtterance.volume = 1;
+
+        if (voice) {
+            currentUtterance.voice = voice;
+        }
+
+        currentUtterance.onstart = function () {
+            btnText.textContent = 'Стоп';
+        };
+
+        currentUtterance.onend = function () {
+            currentUtterance = null;
+            btnText.textContent = 'Озвучить текст';
+        };
+
+        currentUtterance.onerror = function () {
+            currentUtterance = null;
+            btnText.textContent = 'Озвучить текст';
+            alert('Не удалось запустить озвучку в браузере.');
+        };
+
+        synth.cancel();
+
+        setTimeout(() => {
+            synth.speak(currentUtterance);
+        }, 100);
+    }
+</script>
