@@ -179,6 +179,23 @@ async def debug_env():
         "SUPABASE_SERVICE_KEY": "set" if supabase_service_key else "not set"
     }
 
+@app.delete("/api/users/{user_id}", response_class=JSONResponse)
+async def delete_user(user_id: str):
+    """Delete user by ID (admin only)"""
+    try:
+        client = get_supabase_admin_client()
+        if not client:
+            return JSONResponse({"error": "Admin client not configured"}, status_code=500)
+        
+        response = client.auth.admin.delete_user(user_id)
+        logger.info(f"Delete user {user_id}: {response}")
+        
+        return JSONResponse({"message": "User deleted successfully", "user_id": user_id})
+        
+    except Exception as e:
+        logger.error(f"Delete user error: {e}")
+        return JSONResponse({"error": str(e)}, status_code=400)
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("app:app", host="0.0.0.0", port=8000, reload=True)
