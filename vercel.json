@@ -1,12 +1,15 @@
 {
-  "rewrites": [
+  "buildCommand": "pip install -r requirements.txt",
+  "outputDirectory": ".",
+  "framework": null,
+  "routes": [
     {
-      "source": "/public/(.*)",
-      "destination": "/$1"
+      "src": "/public/(.*)",
+      "dest": "/$1"
     },
     {
-      "source": "/(.*)",
-      "destination": "/app.py"
+      "src": "/(.*)",
+      "dest": "/app.py"
     }
   ]
 }
