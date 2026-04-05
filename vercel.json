@@ -3,6 +3,10 @@
     {
       "source": "/public/(.*)",
       "destination": "/$1"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/app.py"
     }
   ]
 }

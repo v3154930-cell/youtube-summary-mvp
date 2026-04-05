@@ -89,20 +89,37 @@ async def register(email: str = Form(...), password: str = Form(...)):
         
         response = client.auth.sign_up({
             "email": email,
-            "password": password
+            "password": password,
+            "options": {
+                "data": {
+                    "email": email
+                }
+            }
         })
         
         if response.user:
             return JSONResponse({
-                "message": "Registration successful! Please check your email to confirm account.",
-                "user_id": response.user.id
+                "message": "Registration successful! You can now login.",
+                "user_id": response.user.id,
+                "email_confirmed": response.user.email_confirmed_at is not None
+            })
+        elif hasattr(response, 'session') and response.session:
+            return JSONResponse({
+                "message": "Registration successful!",
+                "user_id": response.session.user.id
             })
         else:
-            return JSONResponse({"error": "Registration failed"}, status_code=400)
+            return JSONResponse({
+                "message": "Registration successful! Please check your email to confirm your account.",
+                "needs_confirmation": True
+            })
             
     except Exception as e:
         logger.error(f"Registration error: {e}")
-        return JSONResponse({"error": str(e)}, status_code=400)
+        error_msg = str(e)
+        if "rate limit" in error_msg.lower():
+            return JSONResponse({"error": "Too many registration attempts. Please try again later."}, status_code=429)
+        return JSONResponse({"error": error_msg}, status_code=400)
 
 @app.post("/api/login", response_class=JSONResponse)
 async def login(email: str = Form(...), password: str = Form(...)):
