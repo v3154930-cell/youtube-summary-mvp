@@ -24,9 +24,13 @@ supabase_service_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 def get_supabase_client():
     """Create Supabase client"""
     if not supabase_url or not supabase_anon_key:
+        logger.error(f"Missing config: url={bool(supabase_url)}, anon_key={bool(supabase_anon_key)}")
         return None
     from supabase import create_client
-    return create_client(supabase_url, supabase_anon_key)
+    client = create_client(supabase_url, supabase_anon_key)
+    logger.info(f"Supabase client created with URL: {supabase_url}")
+    logger.info(f"Anon key starts with: {supabase_anon_key[:50]}...")
+    return client
 
 def get_supabase_admin_client():
     """Create Supabase admin client for operations that need elevated permissions"""
@@ -87,6 +91,8 @@ async def register(email: str = Form(...), password: str = Form(...)):
                 status_code=500
             )
         
+        logger.info(f"Attempting registration for: {email}")
+        
         response = client.auth.sign_up({
             "email": email,
             "password": password,
@@ -96,6 +102,8 @@ async def register(email: str = Form(...), password: str = Form(...)):
                 }
             }
         })
+        
+        logger.info(f"Registration response: {response}")
         
         if response.user:
             return JSONResponse({
