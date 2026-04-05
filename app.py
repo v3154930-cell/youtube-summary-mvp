@@ -207,6 +207,16 @@ async def health_check():
     """Health check endpoint"""
     return {"status": "ok"}
 
+@app.get("/debug/env")
+async def debug_env():
+    """Debug endpoint to check environment variables"""
+    return {
+        "SUPABASE_URL": supabase_url,
+        "SUPABASE_KEY": "set" if supabase_key else "not set",
+        "SUPABASE_ANON_KEY": "set" if supabase_anon_key else "not set",
+        "SUPABASE_SERVICE_KEY": "set" if supabase_service_key else "not set"
+    }
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("app:app", host="0.0.0.0", port=8000, reload=True)
