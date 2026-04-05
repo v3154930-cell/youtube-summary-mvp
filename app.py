@@ -184,9 +184,9 @@ async def summarize(request: Request, youtube_url: str = Form(...)):
         from services.youtube import get_transcript
         from services.summary import generate_summary
         
-        transcript = get_transcript(video_id)
+        transcript = get_transcript(youtube_url)
         if not transcript:
-            return templates.TemplateResponse("index.html", {"request": request, "error": "Could not get transcript"})
+            return templates.TemplateResponse("index.html", {"request": request, "error": "Could not get transcript - check API key"})
         
         summary = generate_summary(transcript)
         if not summary:
