@@ -1,14 +1,3 @@
 {
-  "buildCommand": "pip install -r requirements.txt",
-  "framework": null,
-  "routes": [
-    {
-      "src": "/public/(.*)",
-      "dest": "/$1"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/app.py"
-    }
-  ]
+  "framework": "fastapi"
 }
