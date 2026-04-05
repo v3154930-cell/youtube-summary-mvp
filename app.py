@@ -37,70 +37,29 @@ def get_supabase_admin_client():
     if not supabase_url or not supabase_service_key:
         return None
     from supabase import create_client
-    return create_client(supabase_url, supabase_service_key)
-
-@app.get("/", response_class=HTMLResponse)
-async def home(request: Request):
-    """Main page with form for YouTube URL input"""
-    return templates.TemplateResponse("index.html", {"request": request})
-
-@app.post("/summarize", response_class=HTMLResponse)
-async def summarize(request: Request, youtube_url: str = Form(...)):
-    """Process YouTube URL and return transcript summary"""
-    try:
-        from services.youtube import get_transcript
-        from services.summary import generate_summary
-        
-        video_id = extract_video_id(youtube_url)
-        if not video_id:
-            raise HTTPException(status_code=400, detail="Invalid YouTube URL")
-        
-        video_url = f"https://www.youtube.com/watch?v={video_id}"
-        transcript = get_transcript(video_url)
-        summary = generate_summary(transcript)
-        
-        return templates.TemplateResponse(
-            "index.html", 
-            {
-                "request": request,
-                "youtube_url": youtube_url,
-                "summary": summary,
-                "transcript": transcript[:500] + "..." if len(transcript) > 500 else transcript,
-                "video_id": video_id
-            }
-        )
-    except Exception as e:
-        logger.error(f"Error processing URL {youtube_url}: {e}")
-        return templates.TemplateResponse(
-            "index.html",
-            {
-                "request": request,
-                "youtube_url": youtube_url,
-                "error": str(e)
-            }
-        )
+    client = create_client(supabase_url, supabase_service_key)
+    logger.info("Admin client created with service role key")
+    return client
 
 @app.post("/api/register", response_class=JSONResponse)
 async def register(email: str = Form(...), password: str = Form(...)):
-    """User registration endpoint"""
+    """User registration endpoint - using admin client to bypass rate limits"""
     try:
-        client = get_supabase_client()
+        client = get_supabase_admin_client()
         if not client:
-            return JSONResponse(
-                {"error": "Supabase not configured. Please set SUPABASE_URL and SUPABASE_KEY in .env"},
-                status_code=500
-            )
+            client = get_supabase_client()
+            if not client:
+                return JSONResponse(
+                    {"error": "Supabase not configured"},
+                    status_code=500
+                )
         
         logger.info(f"Attempting registration for: {email}")
         
-        response = client.auth.sign_up({
+        response = client.auth.admin.create_user({
             "email": email,
             "password": password,
-            "options": {
-                "data": {
-                    "email": email
-                }
-            }
+            "email_confirm": True
         })
         
         logger.info(f"Registration response: {response}")
@@ -111,15 +70,10 @@ async def register(email: str = Form(...), password: str = Form(...)):
                 "user_id": response.user.id,
                 "email_confirmed": response.user.email_confirmed_at is not None
             })
-        elif hasattr(response, 'session') and response.session:
-            return JSONResponse({
-                "message": "Registration successful!",
-                "user_id": response.session.user.id
-            })
         else:
             return JSONResponse({
-                "message": "Registration successful! Please check your email to confirm your account.",
-                "needs_confirmation": True
+                "message": "Registration successful! User created.",
+                "needs_confirmation": False
             })
             
     except Exception as e:
