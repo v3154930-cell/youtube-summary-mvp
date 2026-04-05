@@ -2,6 +2,7 @@ from fastapi import FastAPI, Request, Form, HTTPException, Response
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
+from pathlib import Path
 from utils.url_parser import extract_video_id
 import logging
 import os
@@ -15,6 +16,9 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 templates = Jinja2Templates(directory="templates")
+
+if Path("public").exists():
+    app.mount("/public", StaticFiles(directory="public"), name="public")
 
 supabase_url = os.getenv("SUPABASE_URL")
 supabase_key = os.getenv("SUPABASE_KEY")
@@ -163,6 +167,39 @@ async def get_current_user(request: Request):
     except Exception as e:
         logger.error(f"Get user error: {e}")
         return JSONResponse({"user": None})
+
+@app.get("/", response_class=HTMLResponse)
+async def home(request: Request):
+    """Home page"""
+    return templates.TemplateResponse("index.html", {"request": request})
+
+@app.post("/summarize", response_class=HTMLResponse)
+async def summarize(request: Request, youtube_url: str = Form(...)):
+    """Summarize YouTube video"""
+    try:
+        video_id = extract_video_id(youtube_url)
+        if not video_id:
+            return templates.TemplateResponse("index.html", {"request": request, "error": "Invalid YouTube URL"})
+        
+        from services.youtube import get_transcript
+        from services.summary import generate_summary
+        
+        transcript = get_transcript(video_id)
+        if not transcript:
+            return templates.TemplateResponse("index.html", {"request": request, "error": "Could not get transcript"})
+        
+        summary = generate_summary(transcript)
+        if not summary:
+            return templates.TemplateResponse("index.html", {"request": request, "error": "Could not generate summary"})
+        
+        return templates.TemplateResponse("index.html", {
+            "request": request,
+            "summary": summary,
+            "transcript_preview": transcript[:500]
+        })
+    except Exception as e:
+        logger.error(f"Summarize error: {e}")
+        return templates.TemplateResponse("index.html", {"request": request, "error": str(e)})
 
 @app.get("/health")
 async def health_check():
