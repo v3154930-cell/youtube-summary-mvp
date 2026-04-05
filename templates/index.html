@@ -20,6 +20,38 @@
             <p class="subtitle">Превращаем видео в краткий текст</p>
         </div>
 
+        <div class="auth-section">
+            <div id="loginForm" class="auth-form" style="display:none;">
+                <h3>Вход</h3>
+                <form action="/api/login" method="post" onsubmit="return handleLogin(event)">
+                    <input type="email" name="email" placeholder="Email" required>
+                    <input type="password" name="password" placeholder="Пароль" required>
+                    <button type="submit" class="btn-primary">Войти</button>
+                </form>
+                <p>Нет аккаунта? <a href="#" onclick="showRegister()">Регистрация</a></p>
+            </div>
+
+            <div id="registerForm" class="auth-form" style="display:none;">
+                <h3>Регистрация</h3>
+                <form action="/api/register" method="post" onsubmit="return handleRegister(event)">
+                    <input type="email" name="email" placeholder="Email" required>
+                    <input type="password" name="password" placeholder="Пароль" required>
+                    <button type="submit" class="btn-primary">Зарегистрироваться</button>
+                </form>
+                <p>Есть аккаунт? <a href="#" onclick="showLogin()">Вход</a></p>
+            </div>
+
+            <div id="userInfo" class="user-info" style="display:none;">
+                <span id="userEmail"></span>
+                <button onclick="logout()" class="btn-secondary">Выйти</button>
+            </div>
+
+            <div id="authButtons">
+                <button onclick="showLogin()" class="btn-secondary">Вход</button>
+                <button onclick="showRegister()" class="btn-primary">Регистрация</button>
+            </div>
+        </div>
+
         <form id="summaryForm" action="/summarize" method="post" class="input-section" onsubmit="showThinking()">
             <input
                 type="text"
@@ -91,130 +123,250 @@
         {% endif %}
     </div>
 
-   <script>
-    let synth = window.speechSynthesis;
-    let currentUtterance = null;
-    let availableVoices = [];
+    <script>
+        let currentUser = null;
 
-    function loadVoices() {
-        if (!window.speechSynthesis) return;
-        availableVoices = synth.getVoices() || [];
-    }
-
-    loadVoices();
-
-    if (window.speechSynthesis) {
-        window.speechSynthesis.onvoiceschanged = function () {
-            loadVoices();
-        };
-    }
-
-    function showThinking() {
-        const thinkingSection = document.getElementById('thinkingSection');
-        const submitBtn = document.getElementById('submitBtn');
-        const submitBtnText = document.getElementById('submitBtnText');
-
-        if (thinkingSection) {
-            thinkingSection.style.display = 'block';
+        function showLogin() {
+            document.getElementById('loginForm').style.display = 'block';
+            document.getElementById('registerForm').style.display = 'none';
+            document.getElementById('authButtons').style.display = 'none';
+            document.getElementById('userInfo').style.display = 'none';
         }
 
-        if (submitBtn) {
-            submitBtn.disabled = true;
+        function showRegister() {
+            document.getElementById('registerForm').style.display = 'block';
+            document.getElementById('loginForm').style.display = 'none';
+            document.getElementById('authButtons').style.display = 'none';
+            document.getElementById('userInfo').style.display = 'none';
         }
 
-        if (submitBtnText) {
-            submitBtnText.textContent = 'Идет обработка видео...';
+        function hideAuthForms() {
+            document.getElementById('loginForm').style.display = 'none';
+            document.getElementById('registerForm').style.display = 'none';
+            document.getElementById('authButtons').style.display = 'flex';
         }
 
-        const step1 = document.getElementById('step1');
-        const step2 = document.getElementById('step2');
-        const step3 = document.getElementById('step3');
-
-        setTimeout(() => {
-            if (step1) {
-                step1.classList.remove('active');
-                step1.classList.add('done');
+        async function handleLogin(event) {
+            event.preventDefault();
+            const form = event.target;
+            const formData = new FormData(form);
+            
+            try {
+                const response = await fetch('/api/login', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+                
+                if (data.user) {
+                    currentUser = data.user;
+                    localStorage.setItem('session', JSON.stringify(data.session));
+                    showUserInfo(data.user);
+                } else {
+                    alert(data.error || 'Login failed');
+                }
+            } catch (e) {
+                alert('Login error: ' + e.message);
             }
-            if (step2) {
-                step2.classList.add('active');
-            }
-        }, 700);
-
-        setTimeout(() => {
-            if (step2) {
-                step2.classList.remove('active');
-                step2.classList.add('done');
-            }
-            if (step3) {
-                step3.classList.add('active');
-            }
-        }, 1400);
-    }
-
-    function pickVoice() {
-        if (!availableVoices.length) {
-            loadVoices();
+            return false;
         }
 
-        const russianVoice =
-            availableVoices.find(v => v.lang && v.lang.toLowerCase().startsWith('ru')) ||
-            availableVoices.find(v => v.lang && v.lang.toLowerCase().includes('ru'));
-
-        return russianVoice || availableVoices[0] || null;
-    }
-
-    function toggleSpeech() {
-        const summaryEl = document.getElementById('summaryText');
-        const btnText = document.getElementById('speakText');
-
-        if (!summaryEl || !btnText) return;
-
-        if (!('speechSynthesis' in window)) {
-            alert('В этом браузере не поддерживается озвучка текста.');
-            return;
+        async function handleRegister(event) {
+            event.preventDefault();
+            const form = event.target;
+            const formData = new FormData(form);
+            
+            try {
+                const response = await fetch('/api/register', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+                
+                if (data.user_id) {
+                    alert('Registration successful! You can now login.');
+                    showLogin();
+                } else {
+                    alert(data.error || 'Registration failed');
+                }
+            } catch (e) {
+                alert('Registration error: ' + e.message);
+            }
+            return false;
         }
 
-        if (synth.speaking) {
+        async function logout() {
+            try {
+                await fetch('/api/logout', { method: 'POST' });
+                currentUser = null;
+                localStorage.removeItem('session');
+                hideAuthForms();
+            } catch (e) {
+                console.error('Logout error:', e);
+            }
+        }
+
+        function showUserInfo(user) {
+            if (user) {
+                document.getElementById('loginForm').style.display = 'none';
+                document.getElementById('registerForm').style.display = 'none';
+                document.getElementById('authButtons').style.display = 'none';
+                document.getElementById('userInfo').style.display = 'flex';
+                document.getElementById('userEmail').textContent = user.email;
+            }
+        }
+
+        let synth = window.speechSynthesis;
+        let currentUtterance = null;
+        let availableVoices = [];
+
+        function loadVoices() {
+            if (!window.speechSynthesis) return;
+            availableVoices = synth.getVoices() || [];
+        }
+
+        loadVoices();
+
+        if (window.speechSynthesis) {
+            window.speechSynthesis.onvoiceschanged = function () {
+                loadVoices();
+            };
+        }
+
+        function showThinking() {
+            const thinkingSection = document.getElementById('thinkingSection');
+            const submitBtn = document.getElementById('submitBtn');
+            const submitBtnText = document.getElementById('submitBtnText');
+
+            if (thinkingSection) {
+                thinkingSection.style.display = 'block';
+            }
+
+            if (submitBtn) {
+                submitBtn.disabled = true;
+            }
+
+            if (submitBtnText) {
+                submitBtnText.textContent = 'Идет обработка видео...';
+            }
+
+            const step1 = document.getElementById('step1');
+            const step2 = document.getElementById('step2');
+            const step3 = document.getElementById('step3');
+
+            setTimeout(() => {
+                if (step1) {
+                    step1.classList.remove('active');
+                    step1.classList.add('done');
+                }
+                if (step2) {
+                    step2.classList.add('active');
+                }
+            }, 700);
+
+            setTimeout(() => {
+                if (step2) {
+                    step2.classList.remove('active');
+                    step2.classList.add('done');
+                }
+                if (step3) {
+                    step3.classList.add('active');
+                }
+            }, 1400);
+        }
+
+        function pickVoice() {
+            if (!availableVoices.length) {
+                loadVoices();
+            }
+
+            const russianVoice =
+                availableVoices.find(v => v.lang && v.lang.toLowerCase().startsWith('ru')) ||
+                availableVoices.find(v => v.lang && v.lang.toLowerCase().includes('ru'));
+
+            return russianVoice || availableVoices[0] || null;
+        }
+
+        function toggleSpeech() {
+            const summaryEl = document.getElementById('summaryText');
+            const btnText = document.getElementById('speakText');
+
+            if (!summaryEl || !btnText) return;
+
+            if (!('speechSynthesis' in window)) {
+                alert('В этом браузере не поддерживается озвучка текста.');
+                return;
+            }
+
+            if (synth.speaking) {
+                synth.cancel();
+                currentUtterance = null;
+                btnText.textContent = 'Озвучить текст';
+                return;
+            }
+
+            const text = summaryEl.innerText.trim();
+            if (!text) return;
+
+            const voice = pickVoice();
+
+            currentUtterance = new SpeechSynthesisUtterance(text);
+            currentUtterance.lang = voice?.lang || 'ru-RU';
+            currentUtterance.rate = 0.95;
+            currentUtterance.pitch = 1;
+            currentUtterance.volume = 1;
+
+            if (voice) {
+                currentUtterance.voice = voice;
+            }
+
+            currentUtterance.onstart = function () {
+                btnText.textContent = 'Стоп';
+            };
+
+            currentUtterance.onend = function () {
+                currentUtterance = null;
+                btnText.textContent = 'Озвучить текст';
+            };
+
+            currentUtterance.onerror = function () {
+                currentUtterance = null;
+                btnText.textContent = 'Озвучить текст';
+                alert('Не удалось запустить озвучку в браузере.');
+            };
+
             synth.cancel();
-            currentUtterance = null;
-            btnText.textContent = 'Озвучить текст';
-            return;
+
+            setTimeout(() => {
+                synth.speak(currentUtterance);
+            }, 100);
         }
 
-        const text = summaryEl.innerText.trim();
-        if (!text) return;
-
-        const voice = pickVoice();
-
-        currentUtterance = new SpeechSynthesisUtterance(text);
-        currentUtterance.lang = voice?.lang || 'ru-RU';
-        currentUtterance.rate = 0.95;
-        currentUtterance.pitch = 1;
-        currentUtterance.volume = 1;
-
-        if (voice) {
-            currentUtterance.voice = voice;
-        }
-
-        currentUtterance.onstart = function () {
-            btnText.textContent = 'Стоп';
-        };
-
-        currentUtterance.onend = function () {
-            currentUtterance = null;
-            btnText.textContent = 'Озвучить текст';
-        };
-
-        currentUtterance.onerror = function () {
-            currentUtterance = null;
-            btnText.textContent = 'Озвучить текст';
-            alert('Не удалось запустить озвучку в браузере.');
-        };
-
-        synth.cancel();
-
-        setTimeout(() => {
-            synth.speak(currentUtterance);
-        }, 100);
-    }
-</script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const session = localStorage.getItem('session');
+            if (session) {
+                try {
+                    const sessionData = JSON.parse(session);
+                    if (sessionData.access_token) {
+                        fetch('/api/me', {
+                            headers: {
+                                'Authorization': 'Bearer ' + sessionData.access_token
+                            }
+                        })
+                        .then(r => r.json())
+                        .then(data => {
+                            if (data.user) {
+                                currentUser = data.user;
+                                showUserInfo(data.user);
+                            }
+                        })
+                        .catch(() => {});
+                    }
+                } catch (e) {
+                    console.error('Session parse error:', e);
+                }
+            }
+        });
+    </script>
+</body>
+</html>
